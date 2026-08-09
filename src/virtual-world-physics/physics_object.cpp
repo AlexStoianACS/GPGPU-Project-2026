@@ -50,7 +50,7 @@ void PhysicsObject::Integrate(float deltaTime) {
 	// reset for next step
 	acceleration = glm::vec3(0.0f);
 
-	// update pos of bounding volume, as well
+	// update position of bounding volume, as well
 	UpdateBoundingVolume();
 }
 } // namespace physics
