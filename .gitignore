@@ -1,0 +1,7 @@
+build*
+/**/bin
+/**/.vs
+/**/obj
+components_hidden
+compile_commands.json
+.cache*
