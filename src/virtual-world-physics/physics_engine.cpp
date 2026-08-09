@@ -60,7 +60,10 @@ void PhysicsEngine::Update(float deltaTime) {
 }
 
 void PhysicsEngine::ApplyGravity(float deltaTime) {
-  // TODO
+
+    for (auto& object : m_objects) {
+        object.ApplyForce(object.mass * m_gravity);
+    }
 }
 
 void PhysicsEngine::BroadPhase() {  
