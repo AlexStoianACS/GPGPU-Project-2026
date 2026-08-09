@@ -9,7 +9,7 @@ endif()
 # TODO: Set your CUDA architecture here. Check https://developer.nvidia.com/cuda-gpus for a list of supported architectures.
 # If you list more than one architecture, CMake will build multiple versions of the CUDA code, which will increase build time and binary size.
 if (NOT CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 120)
+    set(CMAKE_CUDA_ARCHITECTURES 75)
 endif()
 
 # Set the name of the project
