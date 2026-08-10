@@ -21,7 +21,7 @@ namespace physics {
 		GPUCollisionDetector() = default;
 		~GPUCollisionDetector() = default;
 
-		bool Initialize() { return false; }
+		bool Initialize();
 
 		std::vector<CollisionInfo> DetectCollisions(const std::vector<PhysicsObject>& objects); // TODO: implement in physics_gpu_cuda.cu
 

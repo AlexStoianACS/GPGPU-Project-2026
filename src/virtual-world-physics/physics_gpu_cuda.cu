@@ -1,9 +1,26 @@
+#include <iostream>
 #include "physics_gpu.h"
 #include "physics_gpu.cuh"
 
 // Define here kernels and entry points for GPU physics computations.
 
 namespace physics {
+
+
+bool GPUCollisionDetector::Initialize() {
+
+    int deviceCount = 0;
+
+    cudaError_t error = cudaGetDeviceCount(&deviceCount);
+
+    if (error != cudaSuccess || deviceCount == 0) {
+        return false;
+    }
+
+    m_initialized = true;
+
+    return true;
+}
 
 __global__
 void BroadPhaseKernel(const GPUObject* objects, size_t objectCount, CandidatePair* pairs, unsigned int* pairCount) {
@@ -43,6 +60,62 @@ void BroadPhaseKernel(const GPUObject* objects, size_t objectCount, CandidatePai
 
         pairIndex += pairsForI;
     }
+}
+
+__global__ void NarrowPhaseKernel(const GPUObject* objects, const CandidatePair* pairs, size_t pairCount, CollisionInfo* collisions) {
+
+    const size_t threadId = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (threadId >= pairCount) {
+        return;
+    }
+
+    const CandidatePair pair = pairs[threadId];
+
+    const GPUObject& objectA = objects[pair.indexA];
+    const GPUObject& objectB = objects[pair.indexB];
+
+    const glm::vec3 minA = objectA.center - objectA.sizes;
+    const glm::vec3 maxA = objectA.center + objectA.sizes;
+
+    const glm::vec3 minB = objectB.center - objectB.sizes;
+    const glm::vec3 maxB = objectB.center + objectB.sizes;
+
+    const float overlapX = fminf(maxA.x, maxB.x) - fmaxf(minA.x, minB.x);
+    const float overlapY = fminf(maxA.y, maxB.y) - fmaxf(minA.y, minB.y);
+    const float overlapZ = fminf(maxA.z, maxB.z) - fmaxf(minA.z, minB.z);
+
+    CollisionInfo collision;
+
+    collision.indexA = pair.indexA;
+    collision.indexB = pair.indexB;
+
+    if (overlapX <= 0.0f || overlapY <= 0.0f || overlapZ <= 0.0f) {
+
+        collisions[threadId] = collision;
+        return;
+    }
+
+    if (overlapX <= overlapY && overlapX <= overlapZ) {
+        collision.penetration = overlapX;
+
+        collision.normal = glm::vec3(objectB.center.x >= objectA.center.x ? 1.0f : -1.0f, 0.0f, 0.0f);
+
+    } else if (overlapY <= overlapZ) {
+
+        collision.penetration = overlapY;
+
+        collision.normal = glm::vec3(0.0f, objectB.center.y >= objectA.center.y ? 1.0f : -1.0f, 0.0f);
+    } else {
+
+        collision.penetration = overlapZ;
+
+        collision.normal = glm::vec3(0.0f, 0.0f, objectB.center.z >= objectA.center.z ? 1.0f : -1.0f);
+    }
+
+    collision.isValid = true;
+
+    collisions[threadId] = collision;
 }
 
 std::vector<CollisionInfo>
@@ -101,14 +174,44 @@ GPUCollisionDetector::DetectCollisions(const std::vector<PhysicsObject>& objects
         cudaMemcpy(candidatePairs.data(), d_pairs, pairCount * sizeof(CandidatePair), cudaMemcpyDeviceToHost);
     }
 
+    // launch Narrow Phase
+    
+    CollisionInfo* d_collisions = nullptr;
+
+    cudaMalloc(&d_collisions, pairCount * sizeof(CollisionInfo));
+
+    if (pairCount > 0) {
+        const size_t narrowBlocks = (pairCount + threadsPerBlock - 1) / threadsPerBlock;
+
+        NarrowPhaseKernel<<<narrowBlocks, threadsPerBlock>>>(d_objects, d_pairs, pairCount, d_collisions);
+
+        cudaDeviceSynchronize();
+    }
+
+
+    // copy CollisionInfo back to CPU
+
+    std::vector<CollisionInfo> collisions(pairCount);
+
+    if (pairCount > 0) {
+        cudaMemcpy(collisions.data(), d_collisions, pairCount * sizeof(CollisionInfo), cudaMemcpyDeviceToHost);
+    }
+
+    std::vector<CollisionInfo> validCollisions;
+
+    for (const auto& collision : collisions) {
+
+        if (collision.isValid) {
+            validCollisions.push_back(collision);
+        }
+    }
+
     cudaFree(d_objects);
     cudaFree(d_pairs);
     cudaFree(d_pairCount);
+    cudaFree(d_collisions);
 
-    // TODO: launch Narrow Phase
-    // TODO: copy CollisionInfo back to CPU
-
-    return {};
+    return validCollisions;
 }
 
 } // namespace physics
