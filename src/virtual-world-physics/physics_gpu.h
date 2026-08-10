@@ -23,7 +23,7 @@ namespace physics {
 
 		bool Initialize() { return false; }
 
-		std::vector<CollisionInfo> DetectCollisions(const std::vector<PhysicsObject>& objects) { return {}; } // TODO: implement in physics_gpu_cuda.cu
+		std::vector<CollisionInfo> DetectCollisions(const std::vector<PhysicsObject>& objects); // TODO: implement in physics_gpu_cuda.cu
 
 	private:
 		bool m_initialized{ false };
