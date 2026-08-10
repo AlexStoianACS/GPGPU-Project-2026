@@ -55,7 +55,7 @@ private:
     MaterialProperties boxMaterial{ 30, 0.7f, 0.5f };
     MaterialProperties wallMaterial{ 20, 0.5f, 0.3f };
 
-    static constexpr int   kObjectCount{ 5000 };
+    static constexpr int   kObjectCount{ 2000 };
     static constexpr float kObjectSizeScale{ .5f };
     bool                    simulationPaused{ false };
 
